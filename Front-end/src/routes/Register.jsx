@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { register } from '../lib/api'
+import { registerInit, registerVerify } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
 
 export default function Register(){
@@ -9,6 +9,9 @@ export default function Register(){
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
+  const [otpPhase, setOtpPhase] = useState(false)
+  const [otpToken, setOtpToken] = useState(null)
+  const [otpCode, setOtpCode] = useState('')
   const navigate = useNavigate()
 
   // Custom component for message display
@@ -27,27 +30,35 @@ export default function Register(){
 
     setError(null)
     setSuccess(null)
-    setIsLoading(true)
 
-    const fd = new FormData()
-    // Append form fields
-    Object.entries(form).forEach(([k,v])=>fd.append(k,v))
-    // Append files
-    if(profile) fd.append('ProfileImage', profile)
-    if(cover) fd.append('CoverImage', cover)
-
-    try{
-      await register(fd)
-      setSuccess('Account created successfully! Redirecting to login...')
-      
-      // Navigate to login after a brief pause
-      setTimeout(() => navigate('/login'), 2000) 
-
-    }catch(err){
-      const errorMessage = err?.response?.data?.message || err?.message || 'Registration failed due to a server error.';
-      setError(errorMessage)
-    } finally {
-      setIsLoading(false)
+    if(!otpPhase){
+      setIsLoading(true)
+      const fd = new FormData()
+      Object.entries(form).forEach(([k,v])=>fd.append(k,v))
+      if(profile) fd.append('ProfileImage', profile)
+      if(cover) fd.append('CoverImage', cover)
+      try{
+        const init = await registerInit(fd)
+        if(init?.otpToken){
+          setOtpToken(init.otpToken)
+          setOtpPhase(true)
+          setSuccess('Verification code sent to your email. Enter the 6-digit code to complete registration.')
+        } else {
+          setError('Failed to initiate registration.')
+        }
+      }catch(err){
+        setError(err?.response?.data?.message || err?.message || 'Registration init failed.')
+      } finally { setIsLoading(false) }
+    } else {
+      if(!otpCode.trim()) return setError('Enter the verification code')
+      setIsLoading(true)
+      try{
+        await registerVerify({ otpToken, code: otpCode.trim() })
+        setSuccess('Account created successfully! Redirecting to login...')
+        setTimeout(()=> navigate('/login'), 2000)
+      }catch(err){
+        setError(err?.response?.data?.message || err?.message || 'Verification failed.')
+      } finally { setIsLoading(false) }
     }
   }
 
@@ -112,8 +123,18 @@ export default function Register(){
             <input type="file" className={fileInputClass} onChange={e=>setCover(e.target.files[0])} disabled={isLoading} accept="image/*"/>
           </div>
 
-          {/* Submit Button */}
-          <div className="md:col-span-2 mt-4">
+          {/* Submit Button + OTP Field */}
+          <div className="md:col-span-2 mt-4 space-y-4">
+            {otpPhase && (
+              <input 
+                className={inputClass}
+                placeholder="Enter 6-digit verification code" 
+                value={otpCode}
+                onChange={e=> setOtpCode(e.target.value)}
+                maxLength={6}
+                disabled={isLoading}
+              />
+            )}
             <button 
               type="submit" 
               className={buttonClass}
@@ -125,10 +146,10 @@ export default function Register(){
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <span>PROCESSING CREDENTIALS...</span>
+                  <span>{otpPhase ? 'VERIFYING...' : 'PROCESSING CREDENTIALS...'}</span>
                 </span>
               ) : (
-                'CREATE ACCOUNT PROTOCOL'
+                otpPhase ? 'VERIFY & CREATE ACCOUNT' : 'CREATE ACCOUNT PROTOCOL'
               )}
             </button>
           </div>

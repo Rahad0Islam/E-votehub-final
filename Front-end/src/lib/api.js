@@ -40,9 +40,14 @@ export async function logout(){
   localStorage.removeItem('user')
 }
 
-export async function register(formData){
+export async function registerInit(formData){
   const res = await api.post('/api/v1/users/register', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-  return res.data
+  return res.data?.data // { otpToken }
+}
+
+export async function registerVerify({ otpToken, code }){
+  const res = await api.post('/api/v1/users/register/verify', { otpToken, code })
+  return res.data?.data
 }
 
 export async function renew(){

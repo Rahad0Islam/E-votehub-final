@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { upload } from "../Middleware/Multer.Middleware.js";
-import { ChangePassword, LogIn, LogOut, Register, RenewAccesToken, UpdateCoverPic, UpdateProfilePic, GetUserPublicProfile } from "../Controllers/user.controller.js";
+import { ChangePassword, LogIn, LogOut, Register, RenewAccesToken, UpdateCoverPic, UpdateProfilePic, GetUserPublicProfile, RegisterVerify } from "../Controllers/user.controller.js";
 import { jwtVerification } from "../Middleware/Authentication.Middleware.js";
 const router=Router();
 
@@ -16,6 +16,8 @@ router.route('/register').post(
         }
     ]),Register
 )
+
+router.route('/register/verify').post(RegisterVerify)
 
 // Accept JSON body for login
 router.route("/login").post(LogIn);
